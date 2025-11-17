@@ -1,338 +1,358 @@
-   "use client"
+import React, { useState, useEffect } from "react";
+import { Spin, Alert, message, Modal } from "antd";
+import { ExclamationCircleOutlined } from "@ant-design/icons";
+import { orderService } from "../../features/orders/api/orderService";
+import { feedbackService } from "../../features/feedback/api/feedbackService";
+import FeedbackModal from "./components/FeedbackModal";
+import ReportViolationModal from "./components/ReportViolationModal";
+import OrderDetailModal from './OrderDetailModal';
+import OrderCard from './components/OrderCard';
+import OrderStats from './components/OrderStats';
+import OrderFilters from './components/OrderFilters';
+import OrderEmpty from './components/OrderEmpty';
 
-   import React, { useState } from "react"
-   import { Row, Col, Card, Input, Select, Tag, Avatar, Button, Statistic, Space } from "antd"
-   import {
-      SearchOutlined,
-      TruckOutlined,
-      EnvironmentOutlined,
-      ClockCircleOutlined,
-      PhoneOutlined,
-      UserOutlined,
-      StarFilled,
-      FilterOutlined,
-      EyeOutlined,
-      MessageOutlined,
-      InboxOutlined,
-      ProfileOutlined
-   } from "@ant-design/icons"
+export default function OrdersPage() {
+   const [searchTerm, setSearchTerm] = useState("");
+   const [statusFilter, setStatusFilter] = useState("all");
+   const [loading, setLoading] = useState(false);
+   const [error, setError] = useState(null);
+   const [orders, setOrders] = useState([]);
+   const [selectedOrder, setSelectedOrder] = useState(null);
+   const [detailModalVisible, setDetailModalVisible] = useState(false);
 
-   // Mock data for orders
-   const ordersData = [
-      {
-         id: "DH001",
-         customerName: "Nguyễn Văn An",
-         customerPhone: "0901234567",
-         pickupAddress: "123 Lê Duẩn, Hải Châu, Đà Nẵng",
-         deliveryAddress: "456 Nguyễn Văn Linh, Sơn Trà, Đà Nẵng",
-         vehicleType: "Xe tải nhỏ",
-         weight: "800kg",
-         distance: "12km",
-         totalPrice: 580000,
-         status: "waiting_driver", // waiting_driver, driver_assigned, picked_up, in_transit, delivered, cancelled
-         createdAt: "2025-01-23T08:30:00",
-         estimatedTime: "45 phút",
-         driver: null,
-         hasInsurance: true,
-         requiresLoading: true,
-         orderImage: "/wrapped-parcel.png",
-         priority: "normal",
-      },
-      {
-         id: "DH002",
-         customerName: "Trần Thị Bình",
-         customerPhone: "0912345678",
-         pickupAddress: "789 Hoàng Diệu, Ngũ Hành Sơn, Đà Nẵng",
-         deliveryAddress: "321 Điện Biên Phủ, Cẩm Lệ, Đà Nẵng",
-         vehicleType: "Xe tải vừa",
-         weight: "2.5 tấn",
-         distance: "18km",
-         totalPrice: 1180000,
-         status: "driver_assigned",
-         createdAt: "2025-01-23T09:15:00",
-         estimatedTime: "60 phút",
-         driver: {
-            name: "Lê Văn Cường",
-            phone: "0923456789",
-            rating: 4.8,
-            avatar: "/professional-driver.png",
-            vehicleNumber: "43A-12345",
-         },
-         hasInsurance: false,
-         requiresLoading: true,
-         orderImage: "/assorted-living-room-furniture.png",
-         priority: "high",
-      },
-      {
-         id: "DH003",
-         customerName: "Phạm Minh Đức",
-         customerPhone: "0934567890",
-         pickupAddress: "FPT Software, Ngũ Hành Sơn, Đà Nẵng",
-         deliveryAddress: "567 Trần Phú, Hải Châu, Đà Nẵng",
-         vehicleType: "Xe thùng kín",
-         weight: "1.2 tấn",
-         distance: "8km",
-         totalPrice: 660000,
-         status: "in_transit",
-         createdAt: "2025-01-23T07:45:00",
-         estimatedTime: "30 phút",
-         driver: {
-            name: "Hoàng Văn Dũng",
-            phone: "0945678901",
-            rating: 4.6,
-            avatar: "/driver2-game.png",
-            vehicleNumber: "43B-67890",
-         },
-         hasInsurance: true,
-         requiresLoading: false,
-         orderImage: "/electronics-components.png",
-         priority: "normal",
-      },
-      {
-         id: "DH004",
-         customerName: "Võ Thị Hoa",
-         customerPhone: "0956789012",
-         pickupAddress: "234 Phan Châu Trinh, Hải Châu, Đà Nẵng",
-         deliveryAddress: "890 Võ Nguyên Giáp, Sơn Trà, Đà Nẵng",
-         vehicleType: "Xe bán tải",
-         weight: "600kg",
-         distance: "15km",
-         totalPrice: 775000,
-         status: "waiting_driver",
-         createdAt: "2025-01-23T10:00:00",
-         estimatedTime: "50 phút",
-         driver: null,
-         hasInsurance: false,
-         requiresLoading: true,
-         orderImage: "/modern-kitchen-appliances.png",
-         priority: "urgent",
-      },
-      {
-         id: "DH005",
-         customerName: "Đặng Quốc Khánh",
-         customerPhone: "0967890123",
-         pickupAddress: "678 Lý Thường Kiệt, Cẩm Lệ, Đà Nẵng",
-         deliveryAddress: "432 Hùng Vương, Hải Châu, Đà Nẵng",
-         vehicleType: "Xe tải trung",
-         weight: "4 tấn",
-         distance: "22km",
-         totalPrice: 1860000,
-         status: "picked_up",
-         createdAt: "2025-01-23T06:30:00",
-         estimatedTime: "75 phút",
-         driver: {
-            name: "Nguyễn Thanh Long",
-            phone: "0978901234",
-            rating: 4.9,
-            avatar: "/driver3-generic.png",
-            vehicleNumber: "43C-11111",
-         },
-         hasInsurance: true,
-         requiresLoading: true,
-         orderImage: "/construction-site-city.png",
-         priority: "normal",
-      },
-   ]
+   // Feedback và Report states
+   const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
+   const [reportModalVisible, setReportModalVisible] = useState(false);
+   const [selectedOrderForFeedback, setSelectedOrderForFeedback] = useState(null);
+   const [selectedDriverForReport, setSelectedDriverForReport] = useState(null);
+   const [feedbacks, setFeedbacks] = useState([]);
+   const [feedbackStats, setFeedbackStats] = useState(null);
+   const [feedbackLoading, setFeedbackLoading] = useState(false);
+   const [cancelModalVisible, setCancelModalVisible] = useState(false);
+   const [cancelOrderId, setCancelOrderId] = useState(null);
+   const [cancelReason, setCancelReason] = useState('');
+   const [cancelling, setCancelling] = useState(false);
 
-   const statusConfig = {
-      waiting_driver: { label: "Đang tìm tài xế", color: "gold", icon: <ClockCircleOutlined /> },
-      driver_assigned: { label: "Đã có tài xế", color: "blue", icon: <UserOutlined /> },
-      picked_up: { label: "Đã lấy hàng", color: "purple", icon: <ProfileOutlined /> },
-      in_transit: { label: "Đang giao", color: "orange", icon: <TruckOutlined /> },
-      delivered: { label: "Đã giao", color: "green", icon: <InboxOutlined /> },
-      cancelled: { label: "Đã hủy", color: "red", icon: <ClockCircleOutlined /> },
-   }
+   // Tải danh sách đơn hàng - chỉ hiển thị đơn đang hoạt động và đã hoàn thành
+   useEffect(() => {
+      const fetchOrders = async () => {
+         setLoading(true);
+         setError(null);
 
-   const priorityConfig = {
-      normal: { label: "Bình thường", color: "default" },
-      high: { label: "Cao", color: "orange" },
-      urgent: { label: "Khẩn cấp", color: "red" },
-   }
+         try {
+            // Lấy tất cả đơn hàng
+            const response = await orderService.getMyOrders({});
 
-   export default function OrdersPage() {
-      const [searchTerm, setSearchTerm] = useState("")
-      const [statusFilter, setStatusFilter] = useState("all")
-      const [priorityFilter, setPriorityFilter] = useState("all")
+            if (response.data?.success) {
+               let allOrders = response.data.data || [];
+               
+               // Chỉ lọc các đơn có status InProgress hoặc Completed
+               // (không hiển thị Created - đơn đang tìm tài xế)
+               const filteredOrders = allOrders.filter(order => {
+                  // Lấy status từ order hoặc từ items
+                  const orderStatus = order.status;
+                  
+                  // Nếu order có items, kiểm tra xem có item nào đã được nhận chưa
+                  if (order.items && order.items.length > 0) {
+                     // Nếu có item nào có status khác Created, thì hiển thị
+                     const hasActiveItems = order.items.some(item => 
+                        item.status && item.status !== 'Created'
+                     );
+                     
+                     // Hoặc nếu order status là InProgress hoặc Completed
+                     if (orderStatus === 'InProgress' || orderStatus === 'Completed') {
+                        return true;
+                     }
+                     
+                     // Nếu có item đã được nhận (Accepted, PickedUp, Delivering, Delivered)
+                     return hasActiveItems;
+                  }
+                  
+                  // Nếu không có items, chỉ hiển thị nếu status là InProgress hoặc Completed
+                  return orderStatus === 'InProgress' || orderStatus === 'Completed';
+               });
+               
+               setOrders(filteredOrders);
+            } else {
+               setError("Không thể tải danh sách đơn hàng");
+            }
+         } catch (error) {
+            console.error("Lỗi khi tải danh sách đơn hàng:", error);
+            setError("Lỗi khi tải danh sách đơn hàng: " + (error.response?.data?.message || error.message));
+         } finally {
+            setLoading(false);
+         }
+      };
 
-      // Filter orders based on search and filters
-      const filteredOrders = ordersData.filter((order) => {
-         const matchesSearch =
-            order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            order.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            order.pickupAddress.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            order.deliveryAddress.toLowerCase().includes(searchTerm.toLowerCase())
+      fetchOrders();
+   }, [statusFilter]);
 
-         const matchesStatus = statusFilter === "all" || order.status === statusFilter
-         const matchesPriority = priorityFilter === "all" || order.priority === priorityFilter
+   // Xem chi tiết đơn hàng
+   const handleViewDetail = async (orderId, driverInfo = null) => {
+      try {
+         setLoading(true);
+         const response = await orderService.getOrderDetail(orderId);
 
-         return matchesSearch && matchesStatus && matchesPriority
-      })
+         if (response.data?.success) {
+            // Nếu có driverInfo từ OrderCard, merge vào order data
+            const orderData = response.data.data;
 
-      const formatPrice = (price) => {
-         return new Intl.NumberFormat("vi-VN", {
-            style: "currency",
-            currency: "VND",
-         }).format(price)
+            if (driverInfo && orderData.items) {
+               orderData.items = orderData.items.map(item => {
+                  // Nếu có driverId nhưng chưa populate userId đầy đủ
+                  if (item.driverId) {
+                     // Kiểm tra xem có populate đầy đủ không
+                     const isFullyPopulated = item.driverId.userId &&
+                        item.driverId.userId.name &&
+                        item.driverId.userId.phone;
+
+                     if (!isFullyPopulated) {
+                        return { ...item, driverId: driverInfo };
+                     }
+                  }
+                  return item;
+               });
+            }
+
+            setSelectedOrder(orderData);
+            setDetailModalVisible(true);
+            await loadOrderFeedbacks(orderId);
+         } else {
+            message.error("Không thể tải chi tiết đơn hàng");
+         }
+      } catch (error) {
+         console.error("Lỗi khi tải chi tiết đơn hàng:", error);
+         message.error("Lỗi khi tải chi tiết đơn hàng");
+      } finally {
+         setLoading(false);
       }
+   };
 
-      const formatTime = (dateString) => {
-         return new Date(dateString).toLocaleTimeString("vi-VN", {
-            hour: "2-digit",
-            minute: "2-digit",
-         })
+   // Load feedback của đơn hàng
+   const loadOrderFeedbacks = async (orderId) => {
+      setFeedbackLoading(true);
+      try {
+         const response = await feedbackService.getOrderFeedbacks(orderId);
+         if (response.data?.success) {
+            setFeedbacks(response.data.data);
+            setFeedbackStats(response.data.stats);
+         }
+      } catch (error) {
+         console.error("Lỗi khi tải feedback:", error);
+      } finally {
+         setFeedbackLoading(false);
       }
+   };
 
-      const getStatusIcon = (status) => statusConfig[status]?.icon || <ClockCircleOutlined />
+   // Mở modal đánh giá
+   const handleOpenFeedback = (order) => {
+      setSelectedOrderForFeedback(order);
+      setFeedbackModalVisible(true);
+   };
 
-      return (
-         <div>
-            <div className="px-4 py-4">
-               <Row gutter={[16, 16]}>
-                  <Col xs={24} md={6}>
-                     <Card>
-                        <Statistic title="Đang chờ tài xế" value={ordersData.filter(o => o.status === 'waiting_driver').length} prefix={<ClockCircleOutlined />} valueStyle={{ color: '#d97706' }} />
-                     </Card>
-                  </Col>
-                  <Col xs={24} md={6}>
-                     <Card>
-                        <Statistic title="Đang thực hiện" value={ordersData.filter(o => ['driver_assigned', 'picked_up', 'in_transit'].includes(o.status)).length} prefix={<TruckOutlined />} valueStyle={{ color: '#1d4ed8' }} />
-                     </Card>
-                  </Col>
-                  <Col xs={24} md={6}>
-                     <Card>
-                        <Statistic title="Hoàn thành" value={ordersData.filter(o => o.status === 'delivered').length} prefix={<InboxOutlined />} valueStyle={{ color: '#16a34a' }} />
-                     </Card>
-                  </Col>
-                  <Col xs={24} md={6}>
-                     <Card>
-                        <Statistic title="Tổng doanh thu" value={ordersData.reduce((s, o) => s + o.totalPrice, 0)} precision={0} prefix={<StarFilled />} valueStyle={{ color: '#7c3aed' }} formatter={(v) => new Intl.NumberFormat('vi-VN').format(Number(v)) + " đ"} />
-                     </Card>
-                  </Col>
-               </Row>
+   // Mở modal báo cáo
+   const handleOpenReport = (order) => {
+      const driver = order.items?.find(item => item.status === 'Delivered' && item.driverId)?.driverId;
+      if (driver) {
+         setSelectedDriverForReport(driver);
+         setReportModalVisible(true);
+      }
+   };
+
+   // Mở modal hủy đơn hàng
+   const openCancelModal = (orderId) => {
+      setCancelOrderId(orderId);
+      setCancelReason('');
+      setCancelModalVisible(true);
+   };
+
+   // Xác nhận hủy đơn hàng
+   const handleCancelOrder = async () => {
+      if (!cancelOrderId) return;
+
+      setCancelling(true);
+      try {
+         const reason = cancelReason.trim() || 'Khách hàng hủy đơn hàng';
+         const response = await orderService.cancelOrder(cancelOrderId, reason);
+         if (response.data?.success) {
+            message.success('Đơn hàng đã được hủy thành công');
+            // Xóa đơn hàng khỏi danh sách và đóng modal
+            setOrders(prevOrders => prevOrders.filter(order => order._id !== cancelOrderId));
+            setDetailModalVisible(false);
+            setSelectedOrder(null);
+            setCancelModalVisible(false);
+            setCancelOrderId(null);
+            setCancelReason('');
+         } else {
+            message.error(response.data?.message || 'Không thể hủy đơn hàng');
+         }
+      } catch (error) {
+         console.error('Lỗi khi hủy đơn hàng:', error);
+         message.error('Lỗi khi hủy đơn hàng: ' + (error.response?.data?.message || error.message));
+      } finally {
+         setCancelling(false);
+      }
+   };
+
+   // Lọc đơn hàng theo từ khóa tìm kiếm
+   const filteredOrders = orders.filter((order) => {
+      const matchesSearch =
+         order._id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+         order.pickupAddress?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+         order.dropoffAddress?.toLowerCase().includes(searchTerm.toLowerCase());
+      return matchesSearch;
+   });
+
+   const hasFilters = searchTerm || statusFilter !== "all";
+
+   return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 p-6">
+         {/* Header */}
+         <div className="mb-8">
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-8 shadow-xl">
+               <div className="flex items-center justify-between">
+                  <div>
+                     <h1 className="text-4xl font-bold text-white mb-2">Đơn hàng của tôi</h1>
+                     <p className="text-blue-100 text-lg">Theo dõi và quản lý các đơn hàng của bạn</p>
+                  </div>
+                  <div className="text-right bg-white bg-opacity-20 rounded-xl p-6 backdrop-blur-sm">
+                     <div className="text-5xl font-bold text-white">{orders.length}</div>
+                     <p className="text-blue-100 font-medium mt-1">Tổng đơn hàng</p>
+                  </div>
+               </div>
             </div>
-
-            <Card className="mx-4 mb-4">
-               <Row gutter={[12, 12]}>
-                  <Col xs={24} md={8}>
-                     <Input placeholder="Tìm kiếm đơn hàng..." prefix={<SearchOutlined />} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} allowClear />
-                  </Col>
-                  <Col xs={24} md={8}>
-                     <Select value={statusFilter} onChange={setStatusFilter} style={{ width: '100%' }} placeholder="Trạng thái">
-                        <Select.Option value="all">Tất cả trạng thái</Select.Option>
-                        <Select.Option value="waiting_driver">Đang tìm tài xế</Select.Option>
-                        <Select.Option value="driver_assigned">Đã có tài xế</Select.Option>
-                        <Select.Option value="picked_up">Đã lấy hàng</Select.Option>
-                        <Select.Option value="in_transit">Đang giao</Select.Option>
-                        <Select.Option value="delivered">Đã giao</Select.Option>
-                        <Select.Option value="cancelled">Đã hủy</Select.Option>
-                     </Select>
-                  </Col>
-                  <Col xs={24} md={6}>
-                     <Select value={priorityFilter} onChange={setPriorityFilter} style={{ width: '100%' }} placeholder="Độ ưu tiên">
-                        <Select.Option value="all">Tất cả mức độ</Select.Option>
-                        <Select.Option value="normal">Bình thường</Select.Option>
-                        <Select.Option value="high">Cao</Select.Option>
-                        <Select.Option value="urgent">Khẩn cấp</Select.Option>
-                     </Select>
-                  </Col>
-                  <Col xs={24} md={2}>
-                     <Button type="primary" icon={<FilterOutlined />} block>
-                        Lọc ({filteredOrders.length})
-                     </Button>
-                  </Col>
-               </Row>
-            </Card>
-
-            <Space direction="vertical" size={16} className="w-full px-4 pb-6">
-               {filteredOrders.map((order) => (
-                  <Card key={order.id} title={`#${order.id}`} extra={<Space size={8}><span>{new Date(order.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span><Button size="small" icon={<EyeOutlined />}>Chi tiết</Button></Space>}>
-                     <Row gutter={[16, 16]}>
-                        <Col xs={24} lg={8}>
-                           <Space direction="vertical" size={12} className="w-full">
-                              <div>
-                                 <div className="font-semibold mb-1">Thông tin khách hàng</div>
-                                 <Space direction="vertical" size={6}>
-                                    <Space size={6}><UserOutlined />{order.customerName}</Space>
-                                    <Space size={6}><PhoneOutlined />{order.customerPhone}</Space>
-                                 </Space>
-                              </div>
-                              <div>
-                                 <div className="font-semibold mb-1">Chi tiết đơn hàng</div>
-                                 <Space direction="vertical" size={6} className="w-full">
-                                    <Space className="w-full" style={{ justifyContent: 'space-between' }}><span>Loại xe:</span><span>{order.vehicleType}</span></Space>
-                                    <Space className="w-full" style={{ justifyContent: 'space-between' }}><span>Khối lượng:</span><span>{order.weight}</span></Space>
-                                    <Space className="w-full" style={{ justifyContent: 'space-between' }}><span>Khoảng cách:</span><span>{order.distance}</span></Space>
-                                    <Space className="w-full" style={{ justifyContent: 'space-between' }}><span>Thời gian dự kiến:</span><span>{order.estimatedTime}</span></Space>
-                                    <Space className="w-full" style={{ justifyContent: 'space-between' }}><span className="font-semibold">Tổng tiền:</span><span className="text-blue-600">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(order.totalPrice)}</span></Space>
-                                 </Space>
-                              </div>
-                              <Space wrap>
-                                 {order.hasInsurance ? <Tag color="green">Có bảo hiểm</Tag> : null}
-                                 {order.requiresLoading ? <Tag color="blue">Bốc hàng tận nơi</Tag> : null}
-                                 <Tag color={statusConfig[order.status]?.color}>{statusConfig[order.status]?.icon}<span style={{ marginLeft: 6 }}>{statusConfig[order.status]?.label}</span></Tag>
-                                 <Tag color={priorityConfig[order.priority]?.color}>{priorityConfig[order.priority]?.label}</Tag>
-                              </Space>
-                           </Space>
-                        </Col>
-                        <Col xs={24} lg={8}>
-                           <Space direction="vertical" size={12} className="w-full">
-                              <div>
-                                 <div className="font-semibold mb-1">Địa chỉ</div>
-                                 <Space direction="vertical" size={6}>
-                                    <Space align="start"><EnvironmentOutlined style={{ color: '#16a34a' }} /> <span>{order.pickupAddress}</span></Space>
-                                    <Space align="start"><EnvironmentOutlined style={{ color: '#ef4444' }} /> <span>{order.deliveryAddress}</span></Space>
-                                 </Space>
-                              </div>
-                              <div>
-                                 <img src={order.orderImage || "/imgs/logonen.png"} alt="Hình ảnh đơn hàng" style={{ width: '100%', height: 96, objectFit: 'cover', borderRadius: 8 }} />
-                                 <div className="text-xs text-gray-500 mt-2">Hình ảnh đơn hàng</div>
-                              </div>
-                           </Space>
-                        </Col>
-                        <Col xs={24} lg={8}>
-                           <div className="font-semibold mb-2">Thông tin tài xế</div>
-                           {order.driver ? (
-                              <Space direction="vertical" size={12} className="w-full">
-                                 <Space size={12}>
-                                    <Avatar src={order.driver.avatar} icon={<UserOutlined />} />
-                                    <div>
-                                       <div className="font-medium">{order.driver.name}</div>
-                                       <Space size={6}>
-                                          <StarFilled style={{ color: '#f59e0b' }} />
-                                          <span className="text-sm text-gray-500">{order.driver.rating}</span>
-                                       </Space>
-                                    </div>
-                                 </Space>
-                                 <Space direction="vertical" size={6}>
-                                    <Space size={8}><PhoneOutlined />{order.driver.phone}</Space>
-                                    <Space size={8}><TruckOutlined />{order.driver.vehicleNumber}</Space>
-                                 </Space>
-                                 <Space>
-                                    <Button icon={<PhoneOutlined />}>Gọi</Button>
-                                    <Button icon={<MessageOutlined />}>Chat</Button>
-                                 </Space>
-                              </Space>
-                           ) : (
-                              <div style={{ textAlign: 'center', padding: '24px 0', color: '#6b7280' }}>
-                                 <ClockCircleOutlined style={{ fontSize: 24 }} />
-                                 <div>Đang tìm tài xế phù hợp</div>
-                                 <div style={{ fontSize: 12 }}>Thời gian chờ dự kiến: 5-10 phút</div>
-                              </div>
-                           )}
-                        </Col>
-                     </Row>
-                  </Card>
-               ))}
-               {filteredOrders.length === 0 ? (
-                  <Card className="w-full text-center">
-                     <Space direction="vertical" size={8}>
-                        <InboxOutlined style={{ fontSize: 48, color: '#9ca3af' }} />
-                        <div className="text-lg font-semibold">Không tìm thấy đơn hàng</div>
-                        <div className="text-gray-500">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm</div>
-                     </Space>
-                  </Card>
-               ) : null}
-            </Space>
          </div>
-      )
-   }
+
+         {/* Stats Cards */}
+         <div className="mb-8">
+            <OrderStats orders={orders} />
+         </div>
+
+         {/* Filters */}
+         <div className="bg-white rounded-xl shadow-md p-6 mb-6">
+            <OrderFilters
+               searchTerm={searchTerm}
+               setSearchTerm={setSearchTerm}
+               statusFilter={statusFilter}
+               setStatusFilter={setStatusFilter}
+               filteredCount={filteredOrders.length}
+            />
+         </div>
+
+         {/* Error Alert */}
+         {error && (
+            <Alert
+               message="Lỗi"
+               description={error}
+               type="error"
+               showIcon
+               closable
+               onClose={() => setError(null)}
+               className="mb-6 rounded-xl"
+            />
+         )}
+
+         {/* Orders List */}
+         {loading ? (
+            <div className="flex justify-center items-center py-20">
+               <Spin size="large">
+                  <div className="py-10">Đang tải đơn hàng...</div>
+               </Spin>
+            </div>
+         ) : filteredOrders.length > 0 ? (
+            <div className="grid grid-cols-1 gap-6">
+               {filteredOrders.map((order) => (
+                  <OrderCard
+                     key={order._id}
+                     order={order}
+                     onViewDetail={handleViewDetail}
+                     onOpenFeedback={handleOpenFeedback}
+                     onOpenReport={handleOpenReport}
+                     onCancelOrder={openCancelModal}
+                  />
+               ))}
+            </div>
+         ) : (
+            <OrderEmpty hasFilters={hasFilters} />
+         )}
+
+         {/* Modal chi tiết đơn hàng */}
+         <OrderDetailModal
+            open={detailModalVisible}
+            onClose={() => setDetailModalVisible(false)}
+            order={selectedOrder}
+            feedbacks={feedbacks}
+            feedbackStats={feedbackStats}
+            feedbackLoading={feedbackLoading}
+            onCancelOrder={openCancelModal}
+            onOpenFeedback={handleOpenFeedback}
+            onOpenReport={handleOpenReport}
+         />
+
+         {/* Modal đánh giá */}
+         <FeedbackModal
+            open={feedbackModalVisible}
+            onClose={() => setFeedbackModalVisible(false)}
+            order={selectedOrderForFeedback}
+            onSuccess={() => {
+               message.success('Đánh giá đã được gửi thành công!');
+               setFeedbackModalVisible(false);
+               if (selectedOrder) {
+                  loadOrderFeedbacks(selectedOrder._id);
+               }
+            }}
+         />
+
+         {/* Modal báo cáo */}
+         <ReportViolationModal
+            open={reportModalVisible}
+            onClose={() => setReportModalVisible(false)}
+            driver={selectedDriverForReport}
+            order={selectedOrderForFeedback}
+            onSuccess={() => {
+               message.success('Báo cáo vi phạm đã được gửi thành công!');
+               setReportModalVisible(false);
+            }}
+         />
+
+         {/* Modal hủy đơn hàng */}
+         <Modal
+            title={
+               <div className="flex items-center space-x-2">
+                  <ExclamationCircleOutlined className="text-red-500" />
+                  <span>Xác nhận hủy đơn hàng</span>
+               </div>
+            }
+            open={cancelModalVisible}
+            onCancel={() => {
+               setCancelModalVisible(false);
+               setCancelOrderId(null);
+               setCancelReason('');
+            }}
+            onOk={handleCancelOrder}
+            okText="Xác nhận hủy"
+            okType="danger"
+            cancelText="Không hủy"
+            confirmLoading={cancelling}
+            width={500}
+         >
+            <div className="space-y-4">
+               <p className="text-gray-700">Bạn có chắc chắn muốn hủy đơn hàng này không?</p>
+               <div>
+                  <p className="text-sm text-gray-600 mb-2">Lý do hủy đơn (tùy chọn):</p>
+                  <textarea
+                     className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                     rows={3}
+                     placeholder="Ví dụ: Đặt nhầm địa chỉ, Thay đổi kế hoạch..."
+                     value={cancelReason}
+                     onChange={(e) => setCancelReason(e.target.value)}
+                  />
+               </div>
+               <p className="text-xs text-gray-500">
+                  Lưu ý: Bạn chỉ có thể hủy đơn hàng khi chưa có tài xế nhận đơn.
+               </p>
+            </div>
+         </Modal>
+      </div>
+   );
+}
