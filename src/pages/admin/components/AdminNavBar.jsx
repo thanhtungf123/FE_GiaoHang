@@ -4,7 +4,8 @@ import {
    UserOutlined,
    CarOutlined,
    BarChartOutlined,
-   FileTextOutlined,
+   WarningOutlined,
+   DollarOutlined,
 } from "@ant-design/icons";
 import { Link, useLocation } from "react-router-dom";
 
@@ -39,8 +40,11 @@ const AdminNavBar = ({ collapsed, onCollapse }) => {
             <Menu.Item key="/admin/revenue" icon={<BarChartOutlined />}>
                <Link to="/admin/revenue">Quản lý doanh thu hệ thống</Link>
             </Menu.Item>
-            <Menu.Item key="/admin/reports" icon={<FileTextOutlined />}>
-               <Link to="/admin/reports">Quản lý báo cáo</Link>
+            <Menu.Item key="/admin/withdrawals" icon={<DollarOutlined />}>
+               <Link to="/admin/withdrawals">Chuyển tiền cho tài xế</Link>
+            </Menu.Item>
+            <Menu.Item key="/admin/reports" icon={<WarningOutlined />}>
+               <Link to="/admin/reports">Báo cáo vi phạm</Link>
             </Menu.Item>
          </Menu>
       </Sider>
